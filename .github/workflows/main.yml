@@ -1,1 +1,89 @@
+name: awscan-ci
 
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run awscan
+        id: run_scan
+        continue-on-error: true
+        run: |
+          chmod +x bin/awscan
+          ./bin/awscan --json-out report.json
+
+      - name: Build run summary
+        if: always()
+        run: |
+          if [ -f report.json ]; then
+            python - <<'PY'
+import json
+from pathlib import Path
+
+data = json.loads(Path("report.json").read_text(encoding="utf-8"))
+lines = [
+    "## awscan report",
+    "",
+    f"- Total findings: {data.get('total_findings', 0)}",
+    f"- Severity counts: {data.get('severity_counts', {})}",
+]
+Path(".summary.md").write_text("\n".join(lines), encoding="utf-8")
+PY
+            cat .summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## awscan report" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- report.json was not created" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: awscan-report
+          path: report.json
+          if-no-files-found: warn
+
+      - name: Send report to Telegram
+        if: always() && secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != ''
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          STATUS="${{ job.status }}"
+
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=awscan job: ${STATUS}%0ARepository: ${{ github.repository }}%0ARun: ${RUN_URL}"
+
+          if [ -f report.json ]; then
+            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+              -F "chat_id=${TELEGRAM_CHAT_ID}" \
+              -F "caption=awscan report (${STATUS})" \
+              -F "document=@report.json"
+          else
+            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=report.json was not created."
+          fi

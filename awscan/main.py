@@ -1,3 +1,7 @@
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -22,7 +26,14 @@ console = Console()
 
 
 @app.command()
-def scan():
+def scan(
+    json_out: Path | None = typer.Option(
+        None,
+        "--json-out",
+        "-j",
+        help="Write scan results to a JSON file",
+    ),
+):
     console.print("[bold cyan]⚡ AWS Scan Started[/bold cyan]\n")
 
     session = get_session()
@@ -38,6 +49,22 @@ def scan():
     ]
 
     results = run_checks_parallel(checks, session)
+    severity_counts = {}
+    for finding in results:
+        severity = finding.get("severity", "UNKNOWN")
+        severity_counts[severity] = severity_counts.get(severity, 0) + 1
+
+    report_payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "total_findings": len(results),
+        "severity_counts": severity_counts,
+        "findings": results,
+    }
+
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        json_out.write_text(json.dumps(report_payload, indent=2), encoding="utf-8")
+        console.print(f"[bold blue]JSON report saved:[/bold blue] {json_out}")
 
     table = Table(title="🚨 AWS Findings")
 

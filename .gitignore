@@ -40,4 +40,5 @@ pip-wheel-metadata/
 
 # Local reports/logs
 report.html
+report.json
 *.log
