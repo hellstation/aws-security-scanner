@@ -24,11 +24,21 @@ class FakeS3Module:
 class FakeIamModule:
     @staticmethod
     def list_roles(_session):
-        return [{"RoleName": "admin-role"}, {"RoleName": "readonly-role"}]
+        return [
+            {"RoleName": "admin-role", "Path": "/"},
+            {"RoleName": "AWSServiceRoleForSupport", "Path": "/aws-service-role/support.amazonaws.com/"},
+            {"RoleName": "readonly-role", "Path": "/"},
+        ]
 
     @staticmethod
-    def has_admin_policy(role):
-        return role["RoleName"] == "admin-role"
+    def is_service_linked_role(role):
+        return role["RoleName"].startswith("AWSServiceRoleFor") or role["Path"].startswith(
+            "/aws-service-role/"
+        )
+
+    @staticmethod
+    def role_has_admin_permissions(_session, role_name):
+        return role_name == "admin-role"
 
 
 class FakeEc2Module:
@@ -81,6 +91,7 @@ class ChecksTests(unittest.TestCase):
     def test_iam_check_finds_admin_role(self):
         results = iam_checks.check_admin_roles(object(), FakeIamModule)
         self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["resource"], "admin-role")
         self.assertEqual(results[0]["severity"], "CRITICAL")
 
     def test_security_group_check_finds_open_group(self):
