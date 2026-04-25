@@ -1,9 +1,13 @@
+from awscan.aws.session import get_client
+
+
 def list_buckets(session):
-    s3 = session.client("s3")
+    s3 = get_client(session, "s3")
     return s3.list_buckets()["Buckets"]
 
+
 def is_bucket_public(session, bucket_name):
-    s3 = session.client("s3")
+    s3 = get_client(session, "s3")
 
     try:
         acl = s3.get_bucket_acl(Bucket=bucket_name)

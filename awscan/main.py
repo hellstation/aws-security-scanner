@@ -23,6 +23,24 @@ from awscan.core.runner import run_checks_parallel
 
 app = typer.Typer(name="awscan")
 console = Console()
+SEVERITY_ORDER = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+SEVERITY_RANK = {severity: index for index, severity in enumerate(SEVERITY_ORDER)}
+
+
+def should_fail(results, fail_on):
+    if not fail_on:
+        return False
+
+    threshold = fail_on.upper()
+    threshold_rank = SEVERITY_RANK[threshold]
+
+    for finding in results:
+        severity = finding.get("severity", "INFO").upper()
+        severity_rank = SEVERITY_RANK.get(severity, SEVERITY_RANK["INFO"])
+        if severity_rank >= threshold_rank:
+            return True
+
+    return False
 
 
 @app.command()
@@ -33,8 +51,22 @@ def scan(
         "-j",
         help="Write scan results to a JSON file",
     ),
+    fail_on: str | None = typer.Option(
+        None,
+        "--fail-on",
+        help="Fail with exit code 1 when findings include this severity or higher",
+    ),
 ):
     console.print("[bold cyan]⚡ AWS Scan Started[/bold cyan]\n")
+
+    normalized_fail_on = None
+    if fail_on:
+        normalized_fail_on = fail_on.upper()
+        if normalized_fail_on not in SEVERITY_RANK:
+            raise typer.BadParameter(
+                f"Invalid --fail-on severity '{fail_on}'. "
+                f"Use one of: {', '.join(SEVERITY_ORDER)}"
+            )
 
     session = get_session()
 
@@ -87,6 +119,12 @@ def scan(
 
     console.print(table)
     console.print(f"\n[bold]Total findings:[/bold] {len(results)}")
+
+    if normalized_fail_on and should_fail(results, normalized_fail_on):
+        console.print(
+            f"[bold red]Failing due to findings at or above {normalized_fail_on}[/bold red]"
+        )
+        raise typer.Exit(code=1)
 
 
 def main():

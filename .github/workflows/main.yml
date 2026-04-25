@@ -26,12 +26,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "test_*.py"
+
       - name: Run awscan
         id: run_scan
-        continue-on-error: true
         run: |
           chmod +x bin/awscan
-          ./bin/awscan --json-out report.json
+          ./bin/awscan --json-out report.json --fail-on HIGH
 
       - name: Build run summary
         if: always()
