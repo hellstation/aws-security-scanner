@@ -6,6 +6,11 @@ def list_roles(session):
     return iam.list_roles()["Roles"]
 
 
+def get_account_summary(session):
+    iam = get_client(session, "iam")
+    return iam.get_account_summary().get("SummaryMap", {})
+
+
 def is_service_linked_role(role):
     role_name = role.get("RoleName", "")
     role_path = role.get("Path", "")

@@ -7,11 +7,17 @@ from rich.console import Console
 from rich.table import Table
 
 from awscan.aws.session import get_session
-from awscan.aws import s3, iam, ec2, network
+from awscan.aws import s3, iam, ec2, network, cloudtrail, accessanalyzer
 
 from awscan.checks import (
+    attack_path_checks,
+    access_analyzer_checks,
+    cloudtrail_checks,
+    ebs_checks,
+    imdsv2_checks,
     s3_checks,
     iam_checks,
+    root_mfa_checks,
     sg_checks,
     vpc_checks,
     subnet_checks,
@@ -20,6 +26,7 @@ from awscan.checks import (
 )
 
 from awscan.core.runner import run_checks_parallel
+from awscan.core.finding_catalog import enrich_findings
 
 app = typer.Typer(name="awscan")
 console = Console()
@@ -78,9 +85,16 @@ def scan(
         lambda s: subnet_checks.check_public_subnets(s, network),
         lambda s: route_checks.check_public_routes(s, network),
         lambda s: igw_checks.check_internet_gateways(s, network),
+        lambda s: attack_path_checks.check_public_to_admin_exploit_path(s, network, ec2, iam),
+        lambda s: cloudtrail_checks.check_cloudtrail_enabled(s, cloudtrail),
+        lambda s: root_mfa_checks.check_root_mfa_enabled(s, iam),
+        lambda s: access_analyzer_checks.check_access_analyzer_enabled(s, accessanalyzer),
+        lambda s: ebs_checks.check_ebs_encryption(s, ec2),
+        lambda s: imdsv2_checks.check_imdsv2_required(s, ec2),
     ]
 
     results = run_checks_parallel(checks, session)
+    results = enrich_findings(results)
     severity_counts = {}
     for finding in results:
         severity = finding.get("severity", "UNKNOWN")
@@ -103,6 +117,7 @@ def scan(
     table.add_column("Type", style="cyan")
     table.add_column("Resource", style="magenta")
     table.add_column("Severity", style="red")
+    table.add_column("Risk", style="yellow")
     table.add_column("Message", style="white")
 
     if not results:
@@ -114,6 +129,7 @@ def scan(
             r["type"],
             r["resource"],
             r["severity"],
+            str(r.get("risk_score", "n/a")),
             r["message"]
         )
 

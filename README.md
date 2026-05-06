@@ -11,6 +11,23 @@ It performs baseline checks for:
 
 Results are shown in the console and can be saved as JSON (`report.json`).
 
+## What is included now
+
+- Baseline cloud misconfiguration checks (S3, IAM, SG, VPC, Subnets, Routes, IGW)
+- Exploit-path detection for chained issues (public exposure + risky IAM)
+- Advanced checks:
+  - CloudTrail presence
+  - Root account MFA
+  - IAM Access Analyzer presence
+  - EBS encryption at rest
+  - IMDSv2 enforcement on EC2
+- Risk scoring and prioritized findings
+- Mapping to security frameworks:
+  - CIS AWS Foundations
+  - NIST SP 800-53
+  - MITRE ATT&CK (Cloud-relevant techniques)
+- Remediation guidance and impact context per finding
+
 ## Current Setup
 
 - Primary execution: **GitHub Actions** (CI/CD).
