@@ -19,6 +19,9 @@ class FindingCatalogTests(unittest.TestCase):
         self.assertIn("nist", finding)
         self.assertIn("mitre_attack", finding)
         self.assertIn("remediation", finding)
+        self.assertIn("confidence", finding)
+        self.assertIn("false_positive_notes", finding)
+        self.assertIn("evidence", finding)
         self.assertGreater(finding.get("risk_score", 0), 0)
 
     def test_enrich_sorts_by_risk_desc(self):

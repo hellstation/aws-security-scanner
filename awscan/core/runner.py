@@ -13,9 +13,11 @@ def run_checks_parallel(checks, session):
                 results.append({
                     "type": "ERROR",
                     "resource": "system",
-                    "severity": "LOW",
+                    "severity": "MEDIUM",
                     "cis": "N/A",
-                    "message": str(e)
+                    "message": str(e),
+                    "evidence": "A scan module raised an exception, reducing scan coverage.",
+                    "confidence": 1.0,
                 })
 
     return results

@@ -118,6 +118,7 @@ def scan(
     table.add_column("Resource", style="magenta")
     table.add_column("Severity", style="red")
     table.add_column("Risk", style="yellow")
+    table.add_column("Confidence", style="green")
     table.add_column("Message", style="white")
 
     if not results:
@@ -130,6 +131,7 @@ def scan(
             r["resource"],
             r["severity"],
             str(r.get("risk_score", "n/a")),
+            str(r.get("confidence", "n/a")),
             r["message"]
         )
 

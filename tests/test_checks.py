@@ -18,7 +18,9 @@ class FakeS3Module:
 
     @staticmethod
     def is_bucket_public(_session, bucket_name):
-        return bucket_name == "public-bucket"
+        if bucket_name == "public-bucket":
+            return True, "ACL grants access to public group.", 0.95
+        return False, "No public signals detected.", 0.9
 
 
 class FakeIamModule:

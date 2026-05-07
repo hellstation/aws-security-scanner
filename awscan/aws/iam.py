@@ -3,7 +3,11 @@ from awscan.aws.session import get_client
 
 def list_roles(session):
     iam = get_client(session, "iam")
-    return iam.list_roles()["Roles"]
+    paginator = iam.get_paginator("list_roles")
+    roles = []
+    for page in paginator.paginate():
+        roles.extend(page.get("Roles", []))
+    return roles
 
 
 def get_account_summary(session):
@@ -37,25 +41,36 @@ def role_has_admin_permissions(session, role_name):
     return False
 
 
-def _get_attached_policy_documents(iam_client, role_name):
-    attached = iam_client.list_attached_role_policies(RoleName=role_name).get(
-        "AttachedPolicies", []
+def get_instance_profile_roles(session, instance_profile_arn):
+    iam = get_client(session, "iam")
+    profile_name = instance_profile_arn.split("/")[-1]
+    profile = iam.get_instance_profile(InstanceProfileName=profile_name).get(
+        "InstanceProfile", {}
     )
-    for policy in attached:
-        policy_arn = policy["PolicyArn"]
-        policy_meta = iam_client.get_policy(PolicyArn=policy_arn)["Policy"]
-        version_id = policy_meta["DefaultVersionId"]
-        version = iam_client.get_policy_version(
-            PolicyArn=policy_arn, VersionId=version_id
-        )
-        yield version["PolicyVersion"]["Document"]
+    return profile.get("Roles", [])
+
+
+def _get_attached_policy_documents(iam_client, role_name):
+    paginator = iam_client.get_paginator("list_attached_role_policies")
+    for page in paginator.paginate(RoleName=role_name):
+        attached = page.get("AttachedPolicies", [])
+        for policy in attached:
+            policy_arn = policy["PolicyArn"]
+            policy_meta = iam_client.get_policy(PolicyArn=policy_arn)["Policy"]
+            version_id = policy_meta["DefaultVersionId"]
+            version = iam_client.get_policy_version(
+                PolicyArn=policy_arn, VersionId=version_id
+            )
+            yield version["PolicyVersion"]["Document"]
 
 
 def _get_inline_policy_documents(iam_client, role_name):
-    policy_names = iam_client.list_role_policies(RoleName=role_name).get("PolicyNames", [])
-    for policy_name in policy_names:
-        policy = iam_client.get_role_policy(RoleName=role_name, PolicyName=policy_name)
-        yield policy["PolicyDocument"]
+    paginator = iam_client.get_paginator("list_role_policies")
+    for page in paginator.paginate(RoleName=role_name):
+        policy_names = page.get("PolicyNames", [])
+        for policy_name in policy_names:
+            policy = iam_client.get_role_policy(RoleName=role_name, PolicyName=policy_name)
+            yield policy["PolicyDocument"]
 
 
 def _policy_grants_admin(policy_document):

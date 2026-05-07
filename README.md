@@ -15,6 +15,7 @@ Results are shown in the console and can be saved as JSON (`report.json`).
 
 - Baseline cloud misconfiguration checks (S3, IAM, SG, VPC, Subnets, Routes, IGW)
 - Exploit-path detection for chained issues (public exposure + risky IAM)
+- Graph-based exploit-path detection (instance -> instance profile -> IAM role -> admin permissions)
 - Advanced checks:
   - CloudTrail presence
   - Root account MFA
@@ -22,6 +23,10 @@ Results are shown in the console and can be saved as JSON (`report.json`).
   - EBS encryption at rest
   - IMDSv2 enforcement on EC2
 - Risk scoring and prioritized findings
+- Finding quality metadata:
+  - confidence score
+  - explicit evidence
+  - false-positive validation notes
 - Mapping to security frameworks:
   - CIS AWS Foundations
   - NIST SP 800-53

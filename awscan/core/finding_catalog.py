@@ -6,6 +6,10 @@ SEVERITY_SCORES = {
     "CRITICAL": 95,
 }
 
+DEFAULT_FALSE_POSITIVE_NOTE = (
+    "Validate in environment context (intended exposure, compensating controls, and exception scope)."
+)
+
 
 FINDING_CATALOG = {
     "S3_PUBLIC": {
@@ -15,6 +19,8 @@ FINDING_CATALOG = {
         "impact": "Data exposure and unintended public object access.",
         "remediation": "Block public access at bucket/account level and tighten bucket policy/ACL.",
         "likelihood": 0.9,
+        "confidence": 0.9,
+        "false_positive_notes": "Intended static hosting or controlled public content can be valid; verify allowed principals and object scope.",
     },
     "IAM_ADMIN": {
         "cis": ["CIS AWS Foundations 1.16"],
@@ -23,6 +29,8 @@ FINDING_CATALOG = {
         "impact": "Privilege escalation and full-account compromise risk.",
         "remediation": "Replace wildcard permissions with least privilege and split duties.",
         "likelihood": 0.85,
+        "confidence": 0.93,
+        "false_positive_notes": "Break-glass roles may be acceptable if tightly gated with MFA/JIT approval and full audit coverage.",
     },
     "SG_ALL_PROTOCOLS": {
         "cis": ["CIS AWS Foundations 5.2"],
@@ -31,6 +39,7 @@ FINDING_CATALOG = {
         "impact": "Internet-reachable workloads with broad attack surface.",
         "remediation": "Restrict ingress by source CIDR, protocol, and explicit ports.",
         "likelihood": 0.95,
+        "confidence": 0.95,
     },
     "SG_ALL_PORTS": {
         "cis": ["CIS AWS Foundations 5.2"],
@@ -39,6 +48,7 @@ FINDING_CATALOG = {
         "impact": "Service exposure across all ports from untrusted networks.",
         "remediation": "Limit to required ports and trusted source ranges only.",
         "likelihood": 0.92,
+        "confidence": 0.95,
     },
     "VPC_DNS_DISABLED": {
         "cis": ["CIS AWS Foundations 3.6"],
@@ -87,6 +97,8 @@ FINDING_CATALOG = {
         "impact": "Chained misconfigurations can lead to internet-to-admin compromise path.",
         "remediation": "Break the chain: close public network exposure and remove admin wildcard IAM privileges.",
         "likelihood": 0.97,
+        "confidence": 0.95,
+        "false_positive_notes": "Treat as high priority when path is tied to running workloads; lower confidence if inferred without instance-to-role linkage.",
     },
     "CLOUDTRAIL_DISABLED": {
         "cis": ["CIS AWS Foundations 3.1"],
@@ -154,6 +166,8 @@ def enrich_findings(findings):
             "impact": meta.get("impact", "No impact description available."),
             "remediation": meta.get("remediation", "No remediation guidance available."),
             "risk_score": risk_score,
+            "confidence": finding.get("confidence", meta.get("confidence", _default_confidence(severity))),
+            "false_positive_notes": meta.get("false_positive_notes", DEFAULT_FALSE_POSITIVE_NOTE),
         }
 
         if "evidence" not in merged:
@@ -163,3 +177,12 @@ def enrich_findings(findings):
 
     enriched.sort(key=lambda item: item.get("risk_score", 0), reverse=True)
     return enriched
+
+
+def _default_confidence(severity):
+    severity = str(severity).upper()
+    if severity in {"CRITICAL", "HIGH"}:
+        return 0.85
+    if severity == "MEDIUM":
+        return 0.75
+    return 0.65
