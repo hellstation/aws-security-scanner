@@ -3,7 +3,7 @@
 
 `awscan` is a lightweight AWS security scanner.
 
-It performs baseline checks for:
+It performs rule-based checks for:
 - S3
 - IAM
 - Security Groups
@@ -14,8 +14,11 @@ Results are shown in the console and can be saved as JSON (`report.json`).
 ## What is included now
 
 - Baseline cloud misconfiguration checks (S3, IAM, SG, VPC, Subnets, Routes, IGW)
-- Exploit-path detection for chained issues (public exposure + risky IAM)
-- Graph-based exploit-path detection (instance -> instance profile -> IAM role -> admin permissions)
+- Chained exploit-path detection using an explicit heuristic:
+  - public subnet
+  - open security group
+  - EC2 instance profile
+  - IAM role with admin-style permissions
 - Advanced checks:
   - CloudTrail presence
   - Root account MFA
@@ -36,13 +39,15 @@ Results are shown in the console and can be saved as JSON (`report.json`).
 ## Current Setup
 
 - Primary execution: **GitHub Actions** (CI/CD).
-- Local execution: `.env` for local testing and manual runs.
+- Local execution: environment variables loaded via `.env` if present.
 
 ## Local Run (for testing)
 
-1. Create `.env` from `.env.example`.
-2. Fill in AWS variables.
-3. Run:
+1. Set the AWS variables expected by `awscan`:
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+   - `AWS_DEFAULT_REGION`
+2. Run:
 
 ```bash
 ./bin/awscan --json-out report.json
@@ -75,7 +80,7 @@ Job steps:
 3. Run `awscan` with `--json-out report.json --fail-on HIGH`
 4. Publish a summary in GitHub Actions
 5. Upload `report.json` as an artifact
-6. Send status + report to Telegram (if bot token/chat ID are configured)
+6. Send status + report to Telegram if bot token/chat ID are configured
 
 ## GitHub Configuration
 
